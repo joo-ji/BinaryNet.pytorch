@@ -1,7 +1,6 @@
 import math
 
 import torch.nn as nn
-import torchvision.transforms as transforms
 
 __all__ = ['resnet']
 
@@ -136,12 +135,11 @@ class ResNet(nn.Module):
 
         return x
 
-
-class ResNet_imagenet(ResNet):
+class ResNet_ImageNet(ResNet):
 
     def __init__(self, num_classes=1000,
                  block=Bottleneck, layers=[3, 4, 23, 3]):
-        super(ResNet_imagenet, self).__init__()
+        super(ResNet_ImageNet, self).__init__()
         self.inplanes = 64
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
@@ -167,11 +165,11 @@ class ResNet_imagenet(ResNet):
         }
 
 
-class ResNet_cifar10(ResNet):
+class ResNet_CIFAR10(ResNet):
 
     def __init__(self, num_classes=10,
                  block=BasicBlock, depth=18):
-        super(ResNet_cifar10, self).__init__()
+        super(ResNet_CIFAR10, self).__init__()
         self.inplanes = 16
         n = int((depth - 2) / 6)
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1,
@@ -198,30 +196,45 @@ class ResNet_cifar10(ResNet):
         }
 
 
+class ResNet_SVHN(ResNet_CIFAR10):
+
+    def __init__(self, num_classes=10,
+                 block=BasicBlock, depth=18):
+        super(ResNet_SVHN, self).__init__(num_classes=10,
+                 block=BasicBlock, depth=depth)
+
+
 def resnet(**kwargs):
     num_classes, depth, dataset = map(
         kwargs.get, ['num_classes', 'depth', 'dataset'])
+
     if dataset == 'imagenet':
         num_classes = num_classes or 1000
         depth = depth or 50
         if depth == 18:
-            return ResNet_imagenet(num_classes=num_classes,
+            return ResNet_ImageNet(num_classes=num_classes,
                                    block=BasicBlock, layers=[2, 2, 2, 2])
         if depth == 34:
-            return ResNet_imagenet(num_classes=num_classes,
+            return ResNet_ImageNet(num_classes=num_classes,
                                    block=BasicBlock, layers=[3, 4, 6, 3])
         if depth == 50:
-            return ResNet_imagenet(num_classes=num_classes,
+            return ResNet_ImageNet(num_classes=num_classes,
                                    block=Bottleneck, layers=[3, 4, 6, 3])
         if depth == 101:
-            return ResNet_imagenet(num_classes=num_classes,
+            return ResNet_ImageNet(num_classes=num_classes,
                                    block=Bottleneck, layers=[3, 4, 23, 3])
         if depth == 152:
-            return ResNet_imagenet(num_classes=num_classes,
+            return ResNet_ImageNet(num_classes=num_classes,
                                    block=Bottleneck, layers=[3, 8, 36, 3])
 
     elif dataset == 'cifar10':
         num_classes = num_classes or 10
         depth = depth or 18 #56
-        return ResNet_cifar10(num_classes=num_classes,
+        return ResNet_CIFAR10(num_classes=num_classes,
                               block=BasicBlock, depth=depth)
+
+    elif dataset == 'svhn':
+        num_classes = num_classes or 10
+        depth = depth or 18 #56
+        return ResNet_SVHN(num_classes=num_classes,
+                           block=BasicBlock, depth=depth)

@@ -95,6 +95,18 @@ def get_transform(name='imagenet', input_size=None,
             scale_size = scale_size or 32
             return scale_crop(input_size=input_size,
                               scale_size=scale_size, normalize=normalize)
+
+    elif name == 'svhn':
+        input_size = input_size or 32
+        if augment:
+            scale_size = scale_size or 40
+            return pad_random_crop(input_size, scale_size=scale_size,
+                                   normalize=normalize)
+        else:
+            scale_size = scale_size or 32
+            return scale_crop(input_size=input_size,
+                              scale_size=scale_size, normalize=normalize)
+
     elif name == 'mnist':
         normalize = {'mean': [0.5], 'std': [0.5]}
         input_size = input_size or 28

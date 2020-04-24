@@ -18,8 +18,9 @@ from ast import literal_eval
 from torchvision.utils import save_image
 
 
-model_names = sorted(name for name in models.__dict__
-                     if name.islower() and not name.startswith("__")
+model_names = sorted(name for name in models.__dict__ 
+                     if name.islower()
+                     and not name.startswith("__")
                      and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ConvNet Training')
@@ -159,7 +160,7 @@ def main():
     criterion.type(args.type)
     model.type(args.type)
 
-    val_data = get_dataset(args.dataset, 'val', transform['eval'])
+    val_data = get_dataset(args.dataset, 'test', transform['eval'])
     val_loader = torch.utils.data.DataLoader(
         val_data,
         batch_size=args.batch_size, shuffle=False,

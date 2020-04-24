@@ -1,15 +1,13 @@
-import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torch.autograd import Function
 
-from .binarized_modules import  BinarizeLinear,BinarizeConv2d
+from .binarized_modules import  BinarizeLinear, BinarizeConv2d
 
+#__all__ = ['vgg_cifar10_binary']
 
-class VGG_Cifar10_Binary(nn.Module):
+class VGGNet_CIFAR10_Binary(nn.Module):
 
     def __init__(self, num_classes=1000):
-        super(VGG_Cifar10_Binary, self).__init__()
+        super(VGGNet_CIFAR10_Binary, self).__init__()
         self.infl_ratio=3
         self.features = nn.Sequential(
             BinarizeConv2d(3, 128*self.infl_ratio, kernel_size=3, stride=1, padding=1,
@@ -73,6 +71,19 @@ class VGG_Cifar10_Binary(nn.Module):
         return x
 
 
-def vgg_cifar10_binary(**kwargs):
-    num_classes = kwargs.get( 'num_classes', 10)
-    return VGG_Cifar10_Binary(num_classes)
+class VGGNet_SVHN_Binary(VGGNet_CIFAR10_Binary):
+    def __init__(self, num_classes=1000):
+        super(VGGNet_SVHN_Binary, self).__init__(num_classes=10)
+
+
+def vggnet_binary(**kwargs):
+    num_classes, depth, dataset = map(kwargs.get, 
+                                      ['num_classes', 'depth', 'dataset'])
+
+    if dataset == 'cifar10':
+        num_classes = num_classes or 10
+        return VGGNet_CIFAR10_Binary(num_classes)
+
+    if dataset == 'svhn':
+        num_classes = num_classes or 10
+        return VGGNet_SVHN_Binary(num_classes)

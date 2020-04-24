@@ -1,11 +1,11 @@
 import torch.nn as nn
-import torchvision.transforms as transforms
 
+#__all__ = ['vggnet']
 
-class VGG_Cifar10(nn.Module):
+class VGGNet_CIFAR10(nn.Module):
 
     def __init__(self, num_classes=1000):
-        super(VGG_Cifar10, self).__init__()
+        super(VGGNet_CIFAR10, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 128, kernel_size=3, stride=1, padding=1,
                       bias=False),
@@ -39,13 +39,15 @@ class VGG_Cifar10(nn.Module):
             nn.Linear(512 * 4 * 4, 1024, bias=False),
             nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
+            
             nn.Dropout(0.5),
             nn.Linear(1024, 1024, bias=False),
             nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
+
             nn.Dropout(0.5),
-            nn.Linear(1024, num_classes)
-            nn.LogSoftMax(dim=1)
+            nn.Linear(1024, num_classes),
+            nn.LogSoftmax(dim=1)
         )
 
         self.regime = {
@@ -64,6 +66,19 @@ class VGG_Cifar10(nn.Module):
         return x
 
 
-def model(**kwargs):
-    num_classes = kwargs.get( 'num_classes', 1000)
-    return VGG_Cifar10(num_classes)
+class VGGNet_SVHN(VGGNet_CIFAR10):
+    def __init__(self, num_classes=1000):
+        super(VGGNet_SVHN, self).__init__(num_classes=10)
+
+
+def vggnet(**kwargs):
+    num_classes, depth, dataset = map(kwargs.get, 
+                                      ['num_classes', 'depth', 'dataset'])
+
+    if dataset == 'cifar10':
+        num_classes = num_classes or 10
+        return VGGNet_CIFAR10(num_classes)
+
+    if dataset == 'svhn':
+        num_classes = num_classes or 10
+        return VGGNet_SVHN(num_classes)

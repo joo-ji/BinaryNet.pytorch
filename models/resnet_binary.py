@@ -1,6 +1,5 @@
 import math
 import torch.nn as nn
-import torchvision.transforms as transforms
 
 from .binarized_modules import BinarizeLinear, BinarizeConv2d
 
@@ -155,11 +154,11 @@ class ResNet_Binary(nn.Module):
         return x
 
 
-class ResNet_imagenet_binary(ResNet_Binary):
+class ResNet_ImageNet_Binary(ResNet_Binary):
 
     def __init__(self, num_classes=1000,
                  block=Bottleneck_Binary, layers=[3, 4, 23, 3]):
-        super(ResNet_imagenet_binary, self).__init__()
+        super(ResNet_ImageNet_Binary, self).__init__()
         self.inplanes = 64
         self.conv1 = BinarizeConv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
@@ -185,11 +184,11 @@ class ResNet_imagenet_binary(ResNet_Binary):
         }
 
 
-class ResNet_cifar10_binary(ResNet_Binary):
+class ResNet_CIFAR10_Binary(ResNet_Binary):
 
     def __init__(self, num_classes=10,
                  block=BasicBlock_Binary, depth=18):
-        super(ResNet_cifar10_binary, self).__init__()
+        super(ResNet_CIFAR10_Binary, self).__init__()
         self.inflate = 5
         self.inplanes = 16 * self.inflate
         n = int((depth - 2) / 6)
@@ -229,36 +228,51 @@ class ResNet_cifar10_binary(ResNet_Binary):
         }
 
 
+class ResNet_SVHN_Binary(ResNet_CIFAR10_Binary):
+
+    def __init__(self, num_classes=10,
+                 block=BasicBlock_Binary, depth=18):
+        super(ResNet_SVHN_Binary, self).__init__(num_classes=10,
+                 block=BasicBlock_Binary, depth=depth)
+
+
 def resnet_binary(**kwargs):
     num_classes, depth, dataset = map(
         kwargs.get, ['num_classes', 'depth', 'dataset'])
-    if dataset == 'imagenet':
+        
+    if dataset == 'imagenet' or dataset == 'ImageNet':
         num_classes = num_classes or 1000
         depth = depth or 50
         if depth == 18:
-            return ResNet_imagenet_binary(num_classes=num_classes,
+            return ResNet_ImageNet_Binary(num_classes=num_classes,
                                           block=BasicBlock_Binary, layers=[2, 2, 2, 2])
         if depth == 34:
-            return ResNet_imagenet_binary(num_classes=num_classes,
+            return ResNet_ImageNet_Binary(num_classes=num_classes,
                                           block=BasicBlock_Binary, layers=[3, 4, 6, 3])
         if depth == 50:
-            return ResNet_imagenet_binary(num_classes=num_classes,
+            return ResNet_ImageNet_Binary(num_classes=num_classes,
                                           block=Bottleneck_Binary, layers=[3, 4, 6, 3])
         if depth == 101:
-            return ResNet_imagenet_binary(num_classes=num_classes,
+            return ResNet_ImageNet_Binary(num_classes=num_classes,
                                           block=Bottleneck_Binary, layers=[3, 4, 23, 3])
         if depth == 152:
-            return ResNet_imagenet_binary(num_classes=num_classes,
+            return ResNet_ImageNet_Binary(num_classes=num_classes,
                                           block=Bottleneck_Binary, layers=[3, 8, 36, 3])
 
-    elif dataset == 'cifar10':
+    elif dataset == 'cifar10' or dataset == 'CIFAR10':
         num_classes = num_classes or 10
         depth = depth or 18
-        return ResNet_cifar10_binary(num_classes=num_classes,
-                              block=BasicBlock_Binary, depth=depth)
+        return ResNet_CIFAR10_Binary(num_classes=num_classes, 
+                                     block=BasicBlock_Binary, depth=depth)
 
-    elif dataset == 'cifar100':
+    elif dataset == 'cifar100' or dataset == 'CIFAR100':
         num_classes = num_classes or 100
         depth = depth or 18
-        return ResNet_cifar10_binary(num_classes=num_classes,
-                              block=BasicBlock_Binary, depth=depth)
+        return ResNet_CIFAR10_Binary(num_classes=num_classes,
+                                     block=BasicBlock_Binary, depth=depth)
+                              
+    elif dataset == 'svhn' or dataset == 'SVHN':
+        num_classes = num_classes or 10
+        depth = depth or 18
+        return ResNet_SVHN_Binary(num_classes=num_classes,
+                                  block=BasicBlock_Binary, depth=depth)
