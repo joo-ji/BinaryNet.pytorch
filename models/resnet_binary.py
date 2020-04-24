@@ -1,7 +1,8 @@
+import math
 import torch.nn as nn
 import torchvision.transforms as transforms
-import math
-from .binarized_modules import  BinarizeLinear,BinarizeConv2d
+
+from .binarized_modules import BinarizeLinear, BinarizeConv2d
 
 __all__ = ['resnet_binary']
 
@@ -25,21 +26,22 @@ def init_model(model):
             m.bias.data.zero_()
 
 
-class BasicBlock(nn.Module):
+class BasicBlock_Binary(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None,do_bntan=True):
-        super(BasicBlock, self).__init__()
+    def __init__(self, inplanes, planes, stride=1, downsample=None, do_bntan=True):
+        super(BasicBlock_Binary, self).__init__()
 
         self.conv1 = Binaryconv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.tanh1 = nn.Hardtanh(inplace=True)
+
         self.conv2 = Binaryconv3x3(planes, planes)
         self.tanh2 = nn.Hardtanh(inplace=True)
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.downsample = downsample
-        self.do_bntan=do_bntan;
+        self.do_bntan = do_bntan;
         self.stride = stride
 
     def forward(self, x):
@@ -66,19 +68,22 @@ class BasicBlock(nn.Module):
         return out
 
 
-class Bottleneck(nn.Module):
+class Bottleneck_Binary(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(Bottleneck, self).__init__()
+    def __init__(self, inplanes, planes, stride=1, downsample=None, do_bntan=True):
+        super(Bottleneck_Binary, self).__init__()
         self.conv1 = BinarizeConv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
+
         self.conv2 = BinarizeConv2d(planes, planes, kernel_size=3, stride=stride,
                                padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
+
         self.conv3 = BinarizeConv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes * 4)
         self.tanh = nn.Hardtanh(inplace=True)
+
         self.downsample = downsample
         self.stride = stride
 
@@ -100,19 +105,19 @@ class Bottleneck(nn.Module):
             residual = self.downsample(x)
 
         out += residual
-        if self.do_bntan:
-            out = self.bn2(out)
-            out = self.tanh2(out)
+        #if self.do_bntan:
+        #    out = self.bn2(out)
+        #    out = self.tanh2(out)
 
         return out
 
 
-class ResNet(nn.Module):
+class ResNet_Binary(nn.Module):
 
     def __init__(self):
-        super(ResNet, self).__init__()
+        super(ResNet_Binary, self).__init__()
 
-    def _make_layer(self, block, planes, blocks, stride=1,do_bntan=True):
+    def _make_layer(self, block, planes, blocks, stride=1, do_bntan=True):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
@@ -126,7 +131,7 @@ class ResNet(nn.Module):
         self.inplanes = planes * block.expansion
         for i in range(1, blocks-1):
             layers.append(block(self.inplanes, planes))
-        layers.append(block(self.inplanes, planes,do_bntan=do_bntan))
+        layers.append(block(self.inplanes, planes, do_bntan=do_bntan))
         return nn.Sequential(*layers)
 
     def forward(self, x):
@@ -150,21 +155,23 @@ class ResNet(nn.Module):
         return x
 
 
-class ResNet_imagenet(ResNet):
+class ResNet_imagenet_binary(ResNet_Binary):
 
     def __init__(self, num_classes=1000,
-                 block=Bottleneck, layers=[3, 4, 23, 3]):
-        super(ResNet_imagenet, self).__init__()
+                 block=Bottleneck_Binary, layers=[3, 4, 23, 3]):
+        super(ResNet_imagenet_binary, self).__init__()
         self.inplanes = 64
         self.conv1 = BinarizeConv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.tanh = nn.Hardtanh(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        
         self.avgpool = nn.AvgPool2d(7)
         self.fc = BinarizeLinear(512 * block.expansion, num_classes)
 
@@ -178,13 +185,13 @@ class ResNet_imagenet(ResNet):
         }
 
 
-class ResNet_cifar10(ResNet):
+class ResNet_cifar10_binary(ResNet_Binary):
 
     def __init__(self, num_classes=10,
-                 block=BasicBlock, depth=18):
-        super(ResNet_cifar10, self).__init__()
+                 block=BasicBlock_Binary, depth=18):
+        super(ResNet_cifar10_binary, self).__init__()
         self.inflate = 5
-        self.inplanes = 16*self.inflate
+        self.inplanes = 16 * self.inflate
         n = int((depth - 2) / 6)
         self.conv1 = BinarizeConv2d(3, 16*self.inflate, kernel_size=3, stride=1, padding=1,
                                bias=False)
@@ -192,14 +199,17 @@ class ResNet_cifar10(ResNet):
         self.bn1 = nn.BatchNorm2d(16*self.inflate)
         self.tanh1 = nn.Hardtanh(inplace=True)
         self.tanh2 = nn.Hardtanh(inplace=True)
+
         self.layer1 = self._make_layer(block, 16*self.inflate, n)
         self.layer2 = self._make_layer(block, 32*self.inflate, n, stride=2)
-        self.layer3 = self._make_layer(block, 64*self.inflate, n, stride=2,do_bntan=False)
+        self.layer3 = self._make_layer(block, 64*self.inflate, n, stride=2, do_bntan=False)
         self.layer4 = lambda x: x
+
         self.avgpool = nn.AvgPool2d(8)
         self.bn2 = nn.BatchNorm1d(64*self.inflate)
         self.bn3 = nn.BatchNorm1d(10)
-        self.logsoftmax = nn.LogSoftmax()
+        
+        self.logsoftmax = nn.LogSoftmax(dim=1)
         self.fc = BinarizeLinear(64*self.inflate, num_classes)
 
         init_model(self)
@@ -226,23 +236,29 @@ def resnet_binary(**kwargs):
         num_classes = num_classes or 1000
         depth = depth or 50
         if depth == 18:
-            return ResNet_imagenet(num_classes=num_classes,
-                                   block=BasicBlock, layers=[2, 2, 2, 2])
+            return ResNet_imagenet_binary(num_classes=num_classes,
+                                          block=BasicBlock_Binary, layers=[2, 2, 2, 2])
         if depth == 34:
-            return ResNet_imagenet(num_classes=num_classes,
-                                   block=BasicBlock, layers=[3, 4, 6, 3])
+            return ResNet_imagenet_binary(num_classes=num_classes,
+                                          block=BasicBlock_Binary, layers=[3, 4, 6, 3])
         if depth == 50:
-            return ResNet_imagenet(num_classes=num_classes,
-                                   block=Bottleneck, layers=[3, 4, 6, 3])
+            return ResNet_imagenet_binary(num_classes=num_classes,
+                                          block=Bottleneck_Binary, layers=[3, 4, 6, 3])
         if depth == 101:
-            return ResNet_imagenet(num_classes=num_classes,
-                                   block=Bottleneck, layers=[3, 4, 23, 3])
+            return ResNet_imagenet_binary(num_classes=num_classes,
+                                          block=Bottleneck_Binary, layers=[3, 4, 23, 3])
         if depth == 152:
-            return ResNet_imagenet(num_classes=num_classes,
-                                   block=Bottleneck, layers=[3, 8, 36, 3])
+            return ResNet_imagenet_binary(num_classes=num_classes,
+                                          block=Bottleneck_Binary, layers=[3, 8, 36, 3])
 
     elif dataset == 'cifar10':
         num_classes = num_classes or 10
         depth = depth or 18
-        return ResNet_cifar10(num_classes=num_classes,
-                              block=BasicBlock, depth=depth)
+        return ResNet_cifar10_binary(num_classes=num_classes,
+                              block=BasicBlock_Binary, depth=depth)
+
+    elif dataset == 'cifar100':
+        num_classes = num_classes or 100
+        depth = depth or 18
+        return ResNet_cifar10_binary(num_classes=num_classes,
+                              block=BasicBlock_Binary, depth=depth)

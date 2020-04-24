@@ -24,7 +24,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ConvNet Training')
 
-parser.add_argument('--results_dir', metavar='RESULTS_DIR', default='./results',
+parser.add_argument('--results_dir', metavar='RESULTS_DIR', default='results/',
                     help='results dir')
 parser.add_argument('--save', metavar='SAVE', default='',
                     help='saved folder')
@@ -73,8 +73,8 @@ def main():
     args = parser.parse_args()
 
     if args.evaluate:
-        args.results_dir = '/tmp'
-    if args.save is '':
+        args.results_dir = 'results/'
+    if args.save == '':
         args.save = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     save_path = os.path.join(args.results_dir, args.save)
     if not os.path.exists(save_path):
@@ -97,13 +97,15 @@ def main():
     # create model
     logging.info("creating model %s", args.model)
     model = models.__dict__[args.model]
+
     model_config = {'input_size': args.input_size, 'dataset': args.dataset}
 
-    if args.model_config is not '':
+    if args.model_config != '':
         model_config = dict(model_config, **literal_eval(args.model_config))
 
     model = model(**model_config)
     logging.info("created model with configuration: %s", model_config)
+    print(model)
 
     # optionally resume from a checkpoint
     if args.evaluate:
@@ -122,7 +124,7 @@ def main():
         if os.path.isfile(checkpoint_file):
             logging.info("loading checkpoint '%s'", args.resume)
             checkpoint = torch.load(checkpoint_file)
-            args.start_epoch = checkpoint['epoch'] - 1
+            args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
             logging.info("loaded checkpoint '%s' (epoch %s)",
@@ -140,11 +142,18 @@ def main():
         'eval': get_transform(args.dataset,
                               input_size=args.input_size, augment=False)
     }
+
     transform = getattr(model, 'input_transform', default_transform)
-    regime = getattr(model, 'regime', {0: {'optimizer': args.optimizer,
-                                           'lr': args.lr,
-                                           'momentum': args.momentum,
-                                           'weight_decay': args.weight_decay}})
+    regime = getattr(model, 'regime', 
+        {0: 
+            {
+                'optimizer': args.optimizer,
+                'lr': args.lr,
+                'momentum': args.momentum,
+                'weight_decay': args.weight_decay
+            }
+        })
+
     # define loss function (criterion) and optimizer
     criterion = getattr(model, 'criterion', nn.CrossEntropyLoss)()
     criterion.type(args.type)
@@ -169,22 +178,26 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     logging.info('training regime: %s', regime)
 
+    train_time = 0
 
     for epoch in range(args.start_epoch, args.epochs):
         optimizer = adjust_optimizer(optimizer, epoch, regime)
 
         # train for one epoch
-        train_loss, train_prec1, train_prec5 = train(
+        train_batch_time, train_loss, train_prec1, train_prec5 = train(
             train_loader, model, criterion, epoch, optimizer)
+    
+        train_time += train_batch_time
 
         # evaluate on validation set
-        val_loss, val_prec1, val_prec5 = validate(
+        valid_batch_time, val_loss, val_prec1, val_prec5 = validate(
             val_loader, model, criterion, epoch)
 
         # remember best prec@1 and save checkpoint
         is_best = val_prec1 > best_prec1
         best_prec1 = max(val_prec1, best_prec1)
-
+        save_all = ((epoch + 1) % 10) == 0
+        
         save_checkpoint({
             'epoch': epoch + 1,
             'model': args.model,
@@ -192,8 +205,11 @@ def main():
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
             'regime': regime
-        }, is_best, path=save_path)
+        }, is_best, path=save_path, save_all=save_all)
+
+        
         logging.info('\n Epoch: {0}\t'
+                     'Training Batch Time \t'
                      'Training Loss {train_loss:.4f} \t'
                      'Training Prec@1 {train_prec1:.3f} \t'
                      'Training Prec@5 {train_prec5:.3f} \t'
@@ -204,9 +220,17 @@ def main():
                              train_prec1=train_prec1, val_prec1=val_prec1,
                              train_prec5=train_prec5, val_prec5=val_prec5))
 
-        results.add(epoch=epoch + 1, train_loss=train_loss, val_loss=val_loss,
-                    train_error1=100 - train_prec1, val_error1=100 - val_prec1,
-                    train_error5=100 - train_prec5, val_error5=100 - val_prec5)
+        results.add(epoch=epoch + 1, 
+                    train_batch_time=train_batch_time,
+                    valid_batch_time=valid_batch_time,
+                    train_time=train_time,
+                    train_loss=train_loss, 
+                    val_loss=val_loss,
+                    train_accuracy1=train_prec1,
+                    train_accuracy5=train_prec5,
+                    val_accuracy1=val_prec1,
+                    val_accuracy5=val_prec5,
+                    )
         #results.plot(x='epoch', y=['train_loss', 'val_loss'],
         #             title='Loss', ylabel='loss')
         #results.plot(x='epoch', y=['train_error1', 'val_error1'],
@@ -225,7 +249,9 @@ def forward(data_loader, model, criterion, epoch=0, training=True, optimizer=Non
     top1 = AverageMeter()
     top5 = AverageMeter()
 
+    start = time.time()
     end = time.time()
+
     for i, (inputs, target) in enumerate(data_loader):
         # measure data loading time
         data_time.update(time.time() - end)
@@ -234,12 +260,12 @@ def forward(data_loader, model, criterion, epoch=0, training=True, optimizer=Non
 
         if not training:
             with torch.no_grad():
-                input_var = Variable(inputs.type(args.type), volatile=not training)
+                input_var = Variable(inputs.type(args.type))
                 target_var = Variable(target)
                 # compute output
                 output = model(input_var)
         else:
-            input_var = Variable(inputs.type(args.type), volatile=not training)
+            input_var = Variable(inputs.type(args.type))
             target_var = Variable(target)
             # compute output
             output = model(input_var)
@@ -284,7 +310,9 @@ def forward(data_loader, model, criterion, epoch=0, training=True, optimizer=Non
                              batch_time=batch_time,
                              data_time=data_time, loss=losses, top1=top1, top5=top5))
 
-    return losses.avg, top1.avg, top5.avg
+    epoch_time = time.time() - start
+
+    return epoch_time, losses.avg, top1.avg, top5.avg
 
 
 def train(data_loader, model, criterion, epoch, optimizer):

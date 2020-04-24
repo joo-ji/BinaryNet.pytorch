@@ -7,8 +7,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
-from models.binarized_modules import  BinarizeLinear,BinarizeConv2d
+from models.binarized_modules import  BinarizeLinear, BinarizeConv2d
 from models.binarized_modules import  Binarize,HingeLoss
+
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -30,23 +31,24 @@ parser.add_argument('--gpus', default=3,
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
 args = parser.parse_args()
+
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 train_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('../data', train=True, download=True,
+    datasets.MNIST('datasets/', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
     batch_size=args.batch_size, shuffle=True, **kwargs)
+
 test_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('../data', train=False, transform=transforms.Compose([
+    datasets.MNIST('datasets/', train=False, transform=transforms.Compose([
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
@@ -83,17 +85,7 @@ class Net(nn.Module):
         x = self.bn3(x)
         x = self.htanh3(x)
         x = self.fc4(x)
-        return self.logsoftmax(x)
-
-model = Net()
-if args.cuda:
-    torch.cuda.set_device(3)
-    model.cuda()
-
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
-
+        return self.logsoftmax(x, dim=0)
 
 def train(epoch):
     model.train()
@@ -142,9 +134,21 @@ def test():
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
+model = Net()
+if args.cuda:
+    torch.cuda.set_device(0)
+    model.cuda()
+	
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
+	
+def run():
+	for epoch in range(1, args.epochs + 1):
+	    train(epoch)
+	    test()
+	    if epoch%40==0:
+	        optimizer.param_groups[0]['lr']=optimizer.param_groups[0]['lr']*0.1
 
-for epoch in range(1, args.epochs + 1):
-    train(epoch)
-    test()
-    if epoch%40==0:
-        optimizer.param_groups[0]['lr']=optimizer.param_groups[0]['lr']*0.1
+
+if __name__ == '__main__':
+	run()

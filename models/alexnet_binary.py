@@ -1,19 +1,21 @@
 import torch.nn as nn
 import torchvision.transforms as transforms
+
 from .binarized_modules import  BinarizeLinear,BinarizeConv2d
 
 __all__ = ['alexnet_binary']
 
-class AlexNetOWT_BN(nn.Module):
+class AlexNet_Binary(nn.Module):
 
     def __init__(self, num_classes=1000):
-        super(AlexNetOWT_BN, self).__init__()
+        super(AlexNet_Binary, self).__init__()
         self.ratioInfl=3
         self.features = nn.Sequential(
             BinarizeConv2d(3, int(64*self.ratioInfl), kernel_size=11, stride=4, padding=2),
             nn.MaxPool2d(kernel_size=3, stride=2),
             nn.BatchNorm2d(int(64*self.ratioInfl)),
             nn.Hardtanh(inplace=True),
+
             BinarizeConv2d(int(64*self.ratioInfl), int(192*self.ratioInfl), kernel_size=5, padding=2),
             nn.MaxPool2d(kernel_size=3, stride=2),
             nn.BatchNorm2d(int(192*self.ratioInfl)),
@@ -44,7 +46,7 @@ class AlexNetOWT_BN(nn.Module):
             #nn.Dropout(0.5),
             BinarizeLinear(4096, num_classes),
             nn.BatchNorm1d(1000),
-            nn.LogSoftmax()
+            nn.LogSoftmax(dim=1)
         )
 
         #self.regime = {
@@ -66,14 +68,14 @@ class AlexNetOWT_BN(nn.Module):
                                          std=[0.229, 0.224, 0.225])
         self.input_transform = {
             'train': transforms.Compose([
-                transforms.Scale(256),
+                transforms.Resize(256),
                 transforms.RandomCrop(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 normalize
             ]),
             'eval': transforms.Compose([
-                transforms.Scale(256),
+                transforms.Resize(256),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
                 normalize
@@ -89,4 +91,4 @@ class AlexNetOWT_BN(nn.Module):
 
 def alexnet_binary(**kwargs):
     num_classes = kwargs.get( 'num_classes', 1000)
-    return AlexNetOWT_BN(num_classes)
+    return AlexNet_Binary(num_classes)

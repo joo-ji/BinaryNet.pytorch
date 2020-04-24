@@ -9,6 +9,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 import models
+
 from torch.autograd import Variable
 from data import get_dataset
 from preprocess import get_transform
@@ -16,7 +17,8 @@ from utils import *
 from datetime import datetime
 from ast import literal_eval
 from torchvision.utils import save_image
-from models.binarized_modules import  HingeLoss
+from models.binarized_modules import HingeLoss
+
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -24,7 +26,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ConvNet Training')
 
-parser.add_argument('--results_dir', metavar='RESULTS_DIR', default='/media/hdd/ihubara/BinaryNet.pytorch/results',
+parser.add_argument('--results_dir', metavar='RESULTS_DIR', default='results/',
                     help='results dir')
 parser.add_argument('--save', metavar='SAVE', default='',
                     help='saved folder')
@@ -79,8 +81,8 @@ def main():
     #import pdb; pdb.set_trace()
     #torch.save(args.batch_size/(len(args.gpus)/2+1),'multi_gpu_batch_size')
     if args.evaluate:
-        args.results_dir = '/tmp'
-    if args.save is '':
+        args.results_dir = 'results/'
+    if args.save == '':
         args.save = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     save_path = os.path.join(args.results_dir, args.save)
     if not os.path.exists(save_path):
@@ -104,11 +106,11 @@ def main():
     logging.info("creating model %s", args.model)
     model = models.__dict__[args.model]
 
-
     model_config = {'input_size': args.input_size, 'dataset': args.dataset, 'num_classes': output_dim}
 
-    if args.model_config is not '':
+    if args.model_config != '':
         model_config = dict(model_config, **literal_eval(args.model_config))
+    
     model = model(**model_config)
     logging.info("created model with configuration: %s", model_config)
 
@@ -147,11 +149,13 @@ def main():
         'eval': get_transform(args.dataset,
                               input_size=args.input_size, augment=False)
     }
+    
     transform = getattr(model, 'input_transform', default_transform)
     regime = getattr(model, 'regime', {0: {'optimizer': args.optimizer,
                                            'lr': args.lr,
                                            'momentum': args.momentum,
                                            'weight_decay': args.weight_decay}})
+    
     # define loss function (criterion) and optimizer
     #criterion = getattr(model, 'criterion', nn.NLLLoss)()
     criterion = getattr(model, 'criterion', HingeLoss)()
@@ -176,8 +180,7 @@ def main():
 
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     logging.info('training regime: %s', regime)
-    #import pdb; pdb.set_trace()
-    #search_binarized_modules(model)
+
 
     for epoch in range(args.start_epoch, args.epochs):
         optimizer = adjust_optimizer(optimizer, epoch, regime)
@@ -193,6 +196,7 @@ def main():
         # remember best prec@1 and save checkpoint
         is_best = val_prec1 > best_prec1
         best_prec1 = max(val_prec1, best_prec1)
+        
         save_checkpoint({
             'epoch': epoch + 1,
             'model': args.model,
