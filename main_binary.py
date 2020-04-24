@@ -196,7 +196,7 @@ def main():
         # remember best prec@1 and save checkpoint
         is_best = val_prec1 > best_prec1
         best_prec1 = max(val_prec1, best_prec1)
-        save_all = ((epoch + 1) % 10) == 0
+        save_all = ((epoch + 1) % 3) == 0
         
         save_checkpoint({
             'epoch': epoch + 1,
@@ -209,14 +209,15 @@ def main():
 
         
         logging.info('\n Epoch: {0}\t'
-                     'Training Batch Time \t'
+                     'Training Batch Time {train_batch_time:.4f}\t'
                      'Training Loss {train_loss:.4f} \t'
+                     'Validation Loss {val_loss:.4f} \t'
                      'Training Prec@1 {train_prec1:.3f} \t'
                      'Training Prec@5 {train_prec5:.3f} \t'
-                     'Validation Loss {val_loss:.4f} \t'
                      'Validation Prec@1 {val_prec1:.3f} \t'
                      'Validation Prec@5 {val_prec5:.3f} \n'
-                     .format(epoch + 1, train_loss=train_loss, val_loss=val_loss,
+                     .format(epoch + 1, train_batch_time=train_batch_time,
+                             train_loss=train_loss, val_loss=val_loss,
                              train_prec1=train_prec1, val_prec1=val_prec1,
                              train_prec5=train_prec5, val_prec5=val_prec5))
 
