@@ -77,6 +77,7 @@ def inception_color_preproccess(input_size, normalize=__imagenet_stats):
 def get_transform(name='imagenet', input_size=None,
                   scale_size=None, normalize=None, augment=True):
     normalize = normalize or __imagenet_stats
+
     if name == 'imagenet':
         scale_size = scale_size or 256
         input_size = input_size or 224
@@ -108,13 +109,19 @@ def get_transform(name='imagenet', input_size=None,
                               scale_size=scale_size, normalize=normalize)
 
     elif name == 'mnist':
-        normalize = {'mean': [0.5], 'std': [0.5]}
-        input_size = input_size or 28
-        if augment:
-            scale_size = scale_size or 32
-            return pad_random_crop(input_size, scale_size=scale_size,
-                                   normalize=normalize)
-        else:
-            scale_size = scale_size or 32
-            return scale_crop(input_size=input_size,
-                              scale_size=scale_size, normalize=normalize)
+
+        return transforms.Compose([
+                       transforms.ToTensor(),
+                       transforms.Normalize((0.1307,), (0.3081,))
+                       ])
+                   
+        # normalize = {'mean': [0.5], 'std': [0.5]}
+        # input_size = input_size or 28
+        # if augment:
+        #     scale_size = scale_size or 32
+        #     return pad_random_crop(input_size, scale_size=scale_size,
+        #                            normalize=normalize)
+        # else:
+        #     scale_size = scale_size or 32
+        #     return scale_crop(input_size=input_size,
+        #                       scale_size=scale_size, normalize=normalize)

@@ -1,4 +1,5 @@
 
+from .binarynet import *
 from .alexnet import *
 from .alexnet_binary import *
 from .resnet import *
